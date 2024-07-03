@@ -1,0 +1,9 @@
+---
+roles:
+  - name: docker
+    src: https://gitlab.com/ansible7213706/docker.git
+    version: main
+
+collections:
+  - name: community.docker
+    version: 3.8.0

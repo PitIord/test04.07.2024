@@ -1,0 +1,60 @@
+---
+- name: Install required roles from Ansible Galaxy
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Install roles from requirements.yml
+      ansible.builtin.command:
+        cmd: ansible-galaxy install -r requirements.yml
+
+- name: Install docker
+  hosts: web-server
+  gather_facts: true
+  become: true
+  roles:
+    - docker
+  
+- name: Create and start web-server
+  hosts: web-server
+  become: yes
+  collections:
+    - community.docker
+  tasks:
+    - name: Create project directory
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ docker_user }}"
+        group: "{{ docker_group }}"
+      loop: [ '/web-server/', '/web-server/mysql', '/web-server/nginx' ]
+    
+    - name: Copy configuration files docker-compose
+      ansible.builtin.template:
+        src: "{{ docker_compose_template }}"
+        dest: "{{ docker_compose_path }}/{{ docker_compose_file }}"
+        mode: "0644"
+        owner: "{{ docker_user }}"
+        group: "{{ docker_group }}"
+        
+    - name: Copy configuration files | create service web-server
+      ansible.builtin.template:
+        src: "{{ service_template }}"
+        dest: "{{ service_path }}"
+        mode: "0644"
+        owner: "{{ docker_user }}"
+        group: "{{ docker_group }}"
+
+    - name: Copy a config_file into the container
+      community.docker.docker_container_copy_into:
+        container: nginx
+        path: "{{ nginx_default_template }}"
+        container_path: "{{ nginx_container_default_path }}"
+
+    - name: Restart docker-compose service
+      community.docker.docker_compose:
+        project_src: "{{ project_source }}"
+        name: nginx
+        state: restarted
+      register: output
+		
